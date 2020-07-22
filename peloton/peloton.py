@@ -44,8 +44,10 @@ try:
     parser.read(os.path.expanduser(conf_path))
 
     # Mandatory credentials
-    PELOTON_USERNAME = parser.get("peloton", "username")
-    PELOTON_PASSWORD = parser.get("peloton", "password")
+    PELOTON_USERNAME = os.environ.get("PELOTON_USERNAME") \
+        or parser.get("peloton", "username")
+    PELOTON_PASSWORD = os.environ.get("PELOTON_USERNAME") \
+        or parser.get("peloton", "password")
 
     # Additional option to show or hide warnings
     try:
