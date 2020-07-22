@@ -6,5 +6,6 @@ setup(name='peloton',
       author='Soggysec / geudrik',
       url='https://github.com/soggysec/peloton-client-library',
       packages=['peloton'],
-      install_requires=[ 'requests', ]
+      install_requires=[ 'requests', ],
+      license="MIT"
       )
