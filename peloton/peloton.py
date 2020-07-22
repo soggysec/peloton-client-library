@@ -40,14 +40,12 @@ try:
 
     import configparser
     parser = configparser.ConfigParser()
-    conf_path = os.environ.get("PELOTON_CONFIG", "~/.config/peloton")
+    conf_path = os.environ.get("PELOTON_CONFIG", "~/.config/peloton.ini")
     parser.read(os.path.expanduser(conf_path))
 
     # Mandatory credentials
-    PELOTON_USERNAME = os.environ.get("PELOTON_USERNAME") \
-        or parser.get("peloton", "username")
-    PELOTON_PASSWORD = os.environ.get("PELOTON_USERNAME") \
-        or parser.get("peloton", "password")
+    PELOTON_USERNAME = parser.get("peloton", "username")
+    PELOTON_PASSWORD = parser.get("peloton", "password")
 
     # Additional option to show or hide warnings
     try:
@@ -78,7 +76,7 @@ try:
 except Exception:
     get_logger().error(
         "No `username` or `password` found in section `peloton` "
-        "in ~/.config/peloton\n"
+        "in ~/.config/peloton.ini\n"
         "Please ensure you specify one prior to utilizing the API\n")
 
 if SHOW_WARNINGS:
@@ -530,7 +528,10 @@ class PelotonWorkoutMetrics(PelotonObject):
         """
 
         self.workout_duration = kwargs.get('duration')
-        self.fitness_discipline = kwargs.get('segment_list')[0]['metrics_type']
+        if kwargs.get('segment_list'):
+            self.fitness_discipline = kwargs.get('segment_list')[0]['metrics_type']
+        else:
+            self.fitness_discipline = None
 
         # Build summary attributes
         metric_summaries = ['total_output', 'distance', 'calories']
@@ -637,7 +638,7 @@ class PelotonWorkoutFactory(PelotonAPI):
         ret = [PelotonWorkout(**workout) for workout in res['data']]
 
         # We've got page 0, so start with page 1
-        for i in range(1, res['page_count']):
+        for _ in range(1, res['page_count']):
 
             params['page'] += 1
             res = cls._api_request(uri, params).json()
