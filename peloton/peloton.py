@@ -6,6 +6,7 @@ import requests
 import logging
 import decimal
 
+from getpass import getpass
 from datetime import datetime
 from datetime import timezone
 from datetime import date
@@ -40,14 +41,26 @@ try:
 
     import configparser
     parser = configparser.ConfigParser()
-    conf_path = os.environ.get("PELOTON_CONFIG", "~/.config/peloton.ini")
-    parser.read(os.path.expanduser(conf_path))
 
-    # Mandatory credentials
-    PELOTON_USERNAME = os.environ.get("PELOTON_USERNAME") \
-        or parser.get("peloton", "username")
-    PELOTON_PASSWORD = os.environ.get("PELOTON_USERNAME") \
-        or parser.get("peloton", "password")
+    conf_path = os.environ.get("PELOTON_CONFIG", "~/.config/peloton.ini")
+
+    # Default to checking environment variables first
+    PELOTON_USERNAME = ""
+    PELOTON_PASSWORD = ""
+    if os.environ.get("PELOTON_USERNAME"):
+        PELOTON_USERNAME = os.environ.get("PELOTON_USERNAME")
+        PELOTON_PASSWORD = os.environ.get("PELOTON_USERNAME")
+
+    elif os.path.exists(os.path.expanduser(conf_path)):
+        parser.read(os.path.expanduser(conf_path))
+        if parser.has_section('peloton'):
+            if parser.has_option('peloton','username'):
+                PELOTON_USERNAME = parser.get("peloton", "username")
+            if parser.has_option('peloton','password'):
+                PELOTON_PASSWORD = parser.get("peloton", "password")
+
+    if not PELOTON_PASSWORD:
+        PELOTON_PASSWORD = getpass()
 
     # Additional option to show or hide warnings
     try:
