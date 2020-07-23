@@ -33,6 +33,8 @@ only config block that the library looks for is shown below.
 ```bash
 [peloton]
 username = Your_Peloton_Username_Or_Email
+
+# Optional: If you don't want to save your password in a file, you'll get prompted when needed
 password = Your_Peloton_Password
 
 # Optional: Whether or not to ignore warnings that are thrown (default: True)
