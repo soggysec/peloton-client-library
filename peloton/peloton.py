@@ -5,12 +5,15 @@ import os
 import requests
 import logging
 import decimal
+import configparser
 
 from getpass import getpass
 from datetime import datetime
 from datetime import timezone
 from datetime import date
 from .version import __version__
+
+from pprint import pprint, pformat
 
 # Set our base URL location
 _BASE_URL = 'https://api.onepeloton.com'
@@ -36,10 +39,10 @@ def get_logger():
 
 
 SHOW_WARNINGS = False
+DEBUG = False
 
 try:
 
-    import configparser
     parser = configparser.ConfigParser()
 
     conf_path = os.environ.get("PELOTON_CONFIG", "~/.config/peloton.ini")
@@ -64,13 +67,16 @@ try:
 
     # Additional option to show or hide warnings
     try:
-        ignore_warnings = parser.getboolean("peloton", "ignore_warnings")
+        ignore_warnings = parser.getboolean("peloton", "ignore_warnings", fallback=False)
+        DEBUG = parser.getboolean("peloton", "debug", fallback=False)
         SHOW_WARNINGS = False if ignore_warnings else True
 
     except:
         SHOW_WARNINGS = False
 
-    if SHOW_WARNINGS:
+    if DEBUG:
+        get_logger().setLevel(logging.DEBUG)
+    elif SHOW_WARNINGS:
         get_logger().setLevel(logging.WARNING)
     else:
         get_logger().setLevel(logging.ERROR)
@@ -88,16 +94,10 @@ try:
     except:
         SSL_CERT = None
 
-except Exception:
-    get_logger().error(
-        "No `username` or `password` found in section `peloton` "
-        "in ~/.config/peloton.ini\n"
-        "Please ensure you specify one prior to utilizing the API\n")
+except Exception as e:
+    get_logger().error(e)
 
-if SHOW_WARNINGS:
-    get_logger().setLevel(logging.WARNING)
-else:
-    get_logger().setLevel(logging.ERROR)
+get_logger().debug("Peloton Instantiated")
 
 
 class NotLoaded:
@@ -282,10 +282,9 @@ class PelotonAPI:
             cls._create_api_session()
 
         get_logger().debug("Request {} [{}]".format(_BASE_URL + uri, params))
-        resp = cls.peloton_session.get(
-            _BASE_URL + uri, headers=cls.headers, params=params)
-        get_logger().debug("Response {}: [{}]".format(
-            resp.status_code, resp._content))
+        resp = cls.peloton_session.get( _BASE_URL + uri, headers=cls.headers, params=params)
+        resp_text = pformat(resp.json())
+        get_logger().debug("Response {}:\n{}".format( resp.status_code, resp_text))
 
         # If we don't have a 200 code
         if not (200 >= resp.status_code < 300):
@@ -411,12 +410,16 @@ class PelotonWorkout(PelotonObject):
             'is_total_work_personal_record', NotLoaded())
 
         # List of achievements that were obtained during this workout
+        # TODO: This section is hacky and needs to be checked for bugs
         achievements = kwargs.get('achievement_templates', NotLoaded())
+
         if not isinstance(achievements, NotLoaded):
             self.achievements = []
             for achievement in achievements:
                 self.achievements.append(
                     PelotonWorkoutAchievement(**achievement))
+        else:
+            self.achievements = achievements
 
     def __str__(self):
         return self.fitness_discipline
@@ -430,7 +433,7 @@ class PelotonWorkout(PelotonObject):
         if attr in ['leaderboard_rank', 'leaderboard_users',
                     'achievements', 'metrics'] and type(value) is NotLoaded:
 
-            if attr.startswith('leaderboard_') or attr == 'achievements':\
+            if attr.startswith('leaderboard_') or attr == 'achievements':
 
                 # Yes, this gets a bunch of duplicate date, but the
                 # endpoints don't return consistent info!
@@ -463,10 +466,10 @@ class PelotonWorkout(PelotonObject):
         return PelotonWorkoutFactory.get(workout_id)
 
     @classmethod
-    def list(cls):
+    def list(cls, limit=10):
         """ Return a list of all workouts
         """
-        return PelotonWorkoutFactory.list()
+        return PelotonWorkoutFactory.list(limit)
 
     @classmethod
     def latest(cls):
@@ -570,6 +573,8 @@ class PelotonWorkoutMetrics(PelotonObject):
             if metric['slug'] not in metric_categories:
                 get_logger().warning(
                     "Unknown metric category {} found".format(metric['slug']))
+                dbg_msg = pformat(metric)
+                get_logger().warning(dbg_msg)
                 continue
 
             setattr(self, metric['slug'], PelotonMetric(**metric))
